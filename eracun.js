@@ -133,22 +133,63 @@ var pesmiIzRacuna = function(racunId, callback) {
     Track.TrackId IN (SELECT InvoiceLine.TrackId FROM InvoiceLine, Invoice \
     WHERE InvoiceLine.InvoiceId = Invoice.InvoiceId AND Invoice.InvoiceId = " + racunId + ")",
     function(napaka, vrstice) {
-      console.log(vrstice);
+      if(napaka)
+        callback(null);
+      else 
+        callback(vrstice);
     })
 }
 
 // Vrni podrobnosti o stranki iz računa
 var strankaIzRacuna = function(racunId, callback) {
-    pb.all("SELECT Customer.* FROM Customer, Invoice \
-            WHERE Customer.CustomerId = Invoice.CustomerId AND Invoice.InvoiceId = " + racunId,
-    function(napaka, vrstice) {
-      console.log(vrstice);
+    pb.all("SELECT c.FirstName Ime\
+                 , c.LastName Priimek\
+                 , c.Company Podjetje\
+                 , c.Address Naslov\
+                 , c.City Kraj\
+              	 , c.Country Drzava\
+              	 , c.PostalCode PostnaStevilka\
+              	 , c.Phone Telefon\
+              	 , c.Fax Fax\
+              	 , c.Email Mail\
+              FROM Customer c\
+                 , Invoice i\
+             WHERE c.CustomerId = i.CustomerId \
+               AND i.InvoiceId = " + racunId
+       , function(napaka, vrstice) {
+          if(napaka)
+            callback(null);
+          else 
+            callback(vrstice[0]);
     })
 }
 
 // Izpis računa v HTML predstavitvi na podlagi podatkov iz baze
 streznik.post('/izpisiRacunBaza', function(zahteva, odgovor) {
-  odgovor.end();
+  var form = new formidable.IncomingForm();
+  
+  form.parse(zahteva, function (napaka1, polja, datoteke) {
+    strankaIzRacuna(polja.seznamRacunov, function(stranka) {
+      if(!stranka)
+        odgovor.sendStatus(500);
+      else {
+        pesmiIzRacuna(polja.seznamRacunov, function(pesmi) {
+          if (!pesmi) {
+            odgovor.sendStatus(500);
+          } else {
+            odgovor.setHeader('content-type', 'text/xml');
+            odgovor.render('eslog', {
+              vizualiziraj: true,
+              postavkeRacuna: pesmi,
+              narocnik: stranka
+            })  
+          }
+        });
+      }
+    });
+    
+    //odgovor.redirect('/prijava');
+  });
 })
 
 // Izpis računa v HTML predstavitvi ali izvorni XML obliki
