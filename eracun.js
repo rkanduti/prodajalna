@@ -149,13 +149,23 @@ var strankaIzRacuna = function(racunId, callback) {
 
 // Vrni podrobnosti o strank
 var strankaIzID = function(strankaId, callback) {
-    pb.all("SELECT Customer.* FROM Customer, Invoice \
-            WHERE Customer.CustomerId = Invoice.CustomerId AND Invoice.InvoiceId = " + strankaId,
-    function(napaka, vrstice) {
-      if(napaka)
-        callback(null);
-      else
-        callback(vrstice[0]);
+    pb.all("SELECT c.FirstName Ime\
+                 , c.LastName Priimek\
+                 , c.Company Podjetje\
+                 , c.Address Naslov\
+                 , c.City Kraj\
+              	 , c.Country Drzava\
+              	 , c.PostalCode PostnaStevilka\
+              	 , c.Phone Telefon\
+              	 , c.Fax Fax\
+              	 , c.Email Mail\
+              FROM Customer c\
+             WHERE c.CustomerId = " + strankaId
+       , function(napaka, vrstice) {
+          if(napaka)
+            callback(null);
+          else 
+            callback(vrstice[0]);
     })
 }
 
@@ -167,23 +177,26 @@ streznik.post('/izpisiRacunBaza', function(zahteva, odgovor) {
 // Izpis računa v HTML predstavitvi ali izvorni XML obliki
 streznik.get('/izpisiRacun/:oblika', function(zahteva, odgovor) {
   sess = zahteva.session;
-  
   strankaIzID(sess.Name, function(stranka) {
-    pesmiIzKosarice(zahteva, function(pesmi) {
-      if (!pesmi) {
-        odgovor.sendStatus(500);
-      } else if (pesmi.length == 0) {
-        odgovor.send("<p>V košarici nimate nobene pesmi, \
-          zato računa ni mogoče pripraviti!</p>");
-      } else {
-        odgovor.setHeader('content-type', 'text/xml');
-        odgovor.render('eslog', {
-          vizualiziraj: zahteva.params.oblika == 'html' ? true : false,
-          postavkeRacuna: pesmi,
-          narocnik: stranka
-        })  
-      }
-    })
+    if(!stranka)
+      odgovor.sendStatus(500);
+    else {
+      pesmiIzKosarice(zahteva, function(pesmi) {
+        if (!pesmi) {
+          odgovor.sendStatus(500);
+        } else if (pesmi.length == 0) {
+          odgovor.send("<p>V košarici nimate nobene pesmi, \
+            zato računa ni mogoče pripraviti!</p>");
+        } else {
+          odgovor.setHeader('content-type', 'text/xml');
+          odgovor.render('eslog', {
+            vizualiziraj: zahteva.params.oblika == 'html' ? true : false,
+            postavkeRacuna: pesmi,
+            narocnik: stranka
+          })  
+        }
+      })
+    }
   })
 })
 
